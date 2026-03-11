@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Hacker OS - Flash Mode</title>
+    <style>
+        :root { --green: #00ff00; --bg: #050505; --dark: #111; }
+        body { background: var(--bg); color: var(--green); font-family: 'Courier New', monospace; padding: 20px; margin: 0; }
+        
+        .container { max-width: 1000px; margin: 0 auto; }
+        .stats-bar { text-align: center; margin-bottom: 20px; border: 1px solid #333; padding: 10px; background: #000; }
+
+        .puzzle-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
+        .puzzle-card { background: var(--dark); border: 1px solid #333; padding: 15px; border-radius: 4px; transition: 0.2s; }
+        .solved { border-color: #00ff00; background: #002200; box-shadow: inset 0 0 10px #004400; }
+        
+        input { background: #000; color: #fff; border: 1px solid #444; padding: 8px; width: calc(100% - 18px); margin: 10px 0; font-family: inherit; }
+        button { background: var(--green); color: #000; border: none; padding: 10px; cursor: pointer; font-weight: bold; width: 100%; }
+        
+        /* Painel ADM */
+        #admin-panel { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; z-index: 1000; flex-direction: column; align-items: center; justify-content: center; }
+        .admin-box { background: #111; padding: 30px; border: 2px solid var(--green); width: 350px; text-align: center; }
+        .admin-box select { width: 100%; padding: 10px; margin: 10px 0; background: #000; color: #0f0; border: 1px solid #0f0; }
+
+        /* Botão ADM visível no topo para facilitar */
+        .btn-adm { background: #111; color: #333; border: 1px solid #222; padding: 5px 10px; font-size: 10px; cursor: pointer; margin-bottom: 10px; display: block; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <button class="btn-adm" onclick="openAdmin()">[ADMIN ACCESS]</button>
+    <div class="stats-bar">
+        STATUS DA SESSÃO: <span id="progress">0</span> / 30 RESOLVIDOS
+        <p style="font-size: 10px; color: #666;">(Atenção: Atualizar a página resetará todo o progresso)</p>
+    </div>
+    <div class="puzzle-grid" id="grid"></div>
+</div>
+
+<div id="admin-panel">
+    <div class="admin-box">
+        <h3>CONTROLE DE SESSÃO</h3>
+        <p>Ignorar desafio:</p>
+        <select id="adm-select"></select>
+        <button onclick="admForceSolve()" style="margin-bottom: 10px;">FORÇAR CONCLUSÃO</button>
+        <br><br>
+        <button onclick="document.getElementById('admin-panel').style.display='none'">VOLTAR</button>
+    </div>
+</div>
+
+<script>
+    const memeUrl = "https://www.reddit.com/media?url=https%3A%2F%2Fpreview.redd.it%2Fbig-monke-flips-you-off-what-u-do-v0-861gk9gqka0c1.png%3Fauto%3Dwebp%26s%3D4ffd6a12783c45e1a56bb7c19a57ead83aaa4f33";
+
+    // Variável VOLÁTIL (não salva no navegador)
+    let solvedPuzzles = []; 
+
+    const puzzles = [
+        { id: 1, q: "Tag HTML para um link?", a: "a" },
+        { id: 2, q: "Propriedade CSS para cor de texto?", a: "color" },
+        { id: 3, q: "Comando JS para log no console?", a: "console.log" },
+        { id: 4, q: "Variável booleana (true/false)?", a: "boolean" },
+        { id: 5, q: "Símbolo de ID no CSS?", a: "#" },
+        { id: 6, q: "Imprimir no Output do Roblox (Luau)?", a: "print" },
+        { id: 7, q: "Qual '=' atribui valor?", a: "=" },
+        { id: 8, q: "Extensão de arquivo JavaScript?", a: ".js" },
+        { id: 9, q: "Tag para código JS no HTML?", a: "script" },
+        { id: 10, q: "Sinal de diferente no JS?", a: "!=" },
+        { id: 11, q: "Declarar constante no JS?", a: "const" },
+        { id: 12, q: "Aguardar em Luau?", a: "task.wait" },
+        { id: 13, q: "Largura no CSS?", a: "width" },
+        { id: 14, q: "Erro no código se chama?", a: "bug" },
+        { id: 15, q: "Título maior (H1-H6)?", a: "h1" },
+        { id: 16, q: "Comando que para um loop?", a: "break" },
+        { id: 17, q: "Comentário em Luau?", a: "--" },
+        { id: 18, q: "Resultado de '1' + 1 no JS?", a: "11" },
+        { id: 19, q: "Converter string para Int?", a: "parseInt" },
+        { id: 20, q: "Adicionar item ao fim do Array?", a: "push" },
+        { id: 21, q: "Lista não ordenada (Tag)?", a: "ul" },
+        { id: 22, q: "Espaçamento interno (CSS)?", a: "padding" },
+        { id: 23, q: "Seletor por ID no JS?", a: "getElementById" },
+        { id: 24, q: "HTML significa HyperText Markup...?", a: "language" },
+        { id: 25, q: "Operador lógico 'AND' no JS?", a: "&&" },
+        { id: 26, q: "Git: Enviar para o repositório?", a: "git push" },
+        { id: 27, q: "Função dentro de classe?", a: "metodo" },
+        { id: 28, q: "Cor de fundo (CSS)?", a: "background-color" },
+        { id: 29, q: "Loop que checa condição antes?", a: "while" },
+        { id: 30, q: "Conteúdo do site fica dentro da tag...?", a: "body" }
+    ];
+
+    function render() {
+        const grid = document.getElementById('grid');
+        const select = document.getElementById('adm-select');
+        
+        grid.innerHTML = '';
+        select.innerHTML = '';
+        document.getElementById('progress').innerText = solvedPuzzles.length;
+
+        // VERIFICAÇÃO FINAL: Se chegou em 30, redireciona pro macaco
+        if(solvedPuzzles.length === 30) {
+            window.location.href = memeUrl;
+            return;
+        }
+
+        puzzles.forEach(p => {
+            const isSolved = solvedPuzzles.includes(p.id);
+            
+            grid.innerHTML += `
+                <div class="puzzle-card ${isSolved ? 'solved' : ''}">
+                    <b>PUZZLE #${p.id}</b>
+                    <p style="font-size:12px; margin: 10px 0;">${p.q}</p>
+                    ${isSolved ? '<div style="color:#0f0; font-weight:bold;">[ACESSO LIBERADO]</div>' : `
+                        <input type="text" id="input-${p.id}" placeholder="Digitar resposta...">
+                        <button onclick="validate(${p.id}, '${p.a}')">CONFIRMAR</button>
+                    `}
+                </div>
+            `;
+
+            if(!isSolved) {
+                select.innerHTML += `<option value="${p.id}">#${p.id}</option>`;
+            }
+        });
+    }
+
+    function validate(id, ans) {
+        const val = document.getElementById(`input-${id}`).value.toLowerCase().trim();
+        if(val === ans.toLowerCase()) {
+            if(!solvedPuzzles.includes(id)) {
+                solvedPuzzles.push(id);
+                render();
+            }
+        } else {
+            alert("ERRO DE SINTAXE: Resposta Inválida.");
+        }
+    }
+
+    // ADM TOOLS
+    function openAdmin() {
+        if(prompt("PASSWORD (ADM):") === "4751") {
+            document.getElementById('admin-panel').style.display = 'flex';
+        }
+    }
+
+    function admForceSolve() {
+        const id = parseInt(document.getElementById('adm-select').value);
+        if(id && !solvedPuzzles.includes(id)) {
+            solvedPuzzles.push(id);
+            render();
+        }
+    }
+
+    render();
+</script>
+</body>
+</html>
